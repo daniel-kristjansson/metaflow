@@ -108,6 +108,7 @@ ERROR_LOCAL_FILE_NOT_FOUND = 10
 ERROR_INVALID_RANGE = 11
 ERROR_TRANSIENT = 12
 ERROR_OUT_OF_DISK_SPACE = 13
+MAX_URLS_PER_QUEUE = 8192
 
 
 def format_result_line(idx, prefix, url="", local=""):
@@ -507,9 +508,11 @@ def process_urls(mode, urls, verbose, inject_failure, num_workers, s3config):
         print("%sing %d files.." % (mode.capitalize(), len(urls)), file=sys.stderr)
 
     start = time.time()
-    sz_results, transient_error_type = start_workers(
-        mode, urls, num_workers, inject_failure, s3config
-    )
+    sz_results, transient_error_type = [], None
+    for i in range(0, len(urls), MAX_URLS_PER_QUEUE):
+        batch = urls[i : i + MAX_URLS_PER_QUEUE]
+        r, t = start_workers(mode, batch, num_workers, inject_failure, s3config)
+        sz_results, transient_error_type = sz_results + r, t or transient_error_type
     end = time.time()
 
     if verbose:
